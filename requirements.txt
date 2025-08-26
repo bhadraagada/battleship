@@ -1,0 +1,16 @@
+# Battleship Game Dependencies
+# All libraries used in the project
+#
+# External libraries
+pygame>=2.5.0
+
+# Standard library modules (come with Python but listed for completeness)
+math
+random
+sys
+io
+os
+wave
+array
+dataclasses
+typing

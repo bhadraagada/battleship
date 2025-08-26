@@ -1,29 +1,18 @@
-import sys
 import math
 import random
+import sys
+
 import pygame
 
-from constants import (
-    GRID_SIZE,
-    CELL_SIZE,
-    MARGIN,
-    GAP,
-    SCREEN_WIDTH,
-    SCREEN_HEIGHT,
-    WHITE,
-    BLACK,
-    GRID_LINE,
-    WATER,
-    SHIP as COLOR_SHIP,
-    HIT as COLOR_HIT,
-    MISS as COLOR_MISS,
-    TEXT,
-    ACCENT,
-    FPS,
-    STANDARD_SHIPS,
-)
-from board import Board, EMPTY, SHIP, HIT, MISS
 from ai import BattleshipAI
+from board import EMPTY, HIT, MISS, SHIP, Board
+from constants import ACCENT, BLACK, CELL_SIZE, FPS, GAP, GRID_LINE, GRID_SIZE
+from constants import HIT as COLOR_HIT
+from constants import MARGIN
+from constants import MISS as COLOR_MISS
+from constants import SCREEN_HEIGHT, SCREEN_WIDTH
+from constants import SHIP as COLOR_SHIP
+from constants import STANDARD_SHIPS, TEXT, WATER, WHITE
 from sounds import load_sounds
 
 
@@ -33,14 +22,16 @@ def draw_grid(surface, top_left, board: Board, reveal_ships: bool = False):
     pygame.draw.rect(
         surface,
         WATER,
-        pygame.Rect(x0 - 2, y0 - 2, GRID_SIZE * CELL_SIZE + 4, GRID_SIZE * CELL_SIZE + 4),
+        pygame.Rect(x0 - 2, y0 - 2, GRID_SIZE * CELL_SIZE +
+                    4, GRID_SIZE * CELL_SIZE + 4),
         border_radius=6,
     )
 
     # Cells
     for r in range(GRID_SIZE):
         for c in range(GRID_SIZE):
-            rect = pygame.Rect(x0 + c * CELL_SIZE, y0 + r * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1)
+            rect = pygame.Rect(x0 + c * CELL_SIZE, y0 + r *
+                               CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1)
             val = board.grid[r][c]
             color = WATER
             if val == HIT:
@@ -146,7 +137,8 @@ class Game:
         # AI chooses shot on player's board
         player_knowledge = self.player_board.get_ai_knowledge()
         player_view_of_ai = self.ai_board.get_ai_knowledge()
-        r, c = self.ai.choose_shot(player_knowledge, player_view_of_ai, ai_remaining_ships=[s.length for s in self.ai_board.ships if not s.sunk])
+        r, c = self.ai.choose_shot(player_knowledge, player_view_of_ai, ai_remaining_ships=[
+                                   s.length for s in self.ai_board.ships if not s.sunk])
         hit, sunk_len, game_over = self.player_board.receive_shot(r, c)
         self.last_ai_shot = (r, c)
         if hit:
@@ -165,8 +157,15 @@ class Game:
             self.winner = "AI"
             self.message = "AI wins! Press N for new game."
             return
-        self.state = "player_turn"
-        self.message = "Your turn: click a cell on the right grid."
+
+        # Only switch turns if AI missed
+        if hit:
+            self.state = "ai_turn"
+            self.message = "AI hit! AI gets another turn..."
+            self.ai_move_cooldown = 350  # ms for next AI move
+        else:
+            self.state = "player_turn"
+            self.message = "Your turn: click a cell on the right grid."
 
     def handle_player_shot(self, cell):
         if not cell:
@@ -193,10 +192,16 @@ class Game:
             self.winner = "Player"
             self.message = "You win! Press N for new game."
             return
-        # Switch to AI after a short delay
-        self.state = "ai_turn"
-        self.message = "AI thinking..."
-        self.ai_move_cooldown = 350  # ms
+
+        # Only switch turns if player missed
+        if hit:
+            self.state = "player_turn"
+            self.message = "Hit! You get another turn: click a cell on the right grid."
+        else:
+            # Switch to AI after a short delay
+            self.state = "ai_turn"
+            self.message = "AI thinking..."
+            self.ai_move_cooldown = 350  # ms
 
     # --- Audio helpers ---
     def _play(self, key: str):
@@ -261,29 +266,36 @@ class Game:
     def draw(self):
         self.screen.fill(BLACK)
         # Titles
-        render_text(self.screen, self.big_font, "Your Fleet", (self.left_origin[0], self.left_origin[1] - 28), ACCENT)
-        render_text(self.screen, self.big_font, "Enemy Waters", (self.right_origin[0], self.right_origin[1] - 28), ACCENT)
+        render_text(self.screen, self.big_font, "Your Fleet",
+                    (self.left_origin[0], self.left_origin[1] - 28), ACCENT)
+        render_text(self.screen, self.big_font, "Enemy Waters",
+                    (self.right_origin[0], self.right_origin[1] - 28), ACCENT)
 
-        draw_grid(self.screen, self.left_origin, self.player_board, reveal_ships=True)
+        draw_grid(self.screen, self.left_origin,
+                  self.player_board, reveal_ships=True)
 
         # For enemy board we draw public view (ships hidden). Clone a temporary board for drawing simplicity
-        draw_grid(self.screen, self.right_origin, self.ai_board, reveal_ships=False)
+        draw_grid(self.screen, self.right_origin,
+                  self.ai_board, reveal_ships=False)
 
         # Hover highlight on enemy grid
         if self.state == "player_turn" and self.hover_cell:
             r, c = self.hover_cell
             if 0 <= r < GRID_SIZE and 0 <= c < GRID_SIZE and self.ai_board.is_valid_shot(r, c):
-                surf = pygame.Surface((CELL_SIZE - 2, CELL_SIZE - 2), pygame.SRCALPHA)
+                surf = pygame.Surface(
+                    (CELL_SIZE - 2, CELL_SIZE - 2), pygame.SRCALPHA)
                 surf.fill((255, 255, 255, 28))
                 x0, y0 = self.right_origin
-                self.screen.blit(surf, (x0 + c * CELL_SIZE + 1, y0 + r * CELL_SIZE + 1))
+                self.screen.blit(
+                    surf, (x0 + c * CELL_SIZE + 1, y0 + r * CELL_SIZE + 1))
 
         # Last shot pulse indicators
         self._draw_pulse_marker(self.right_origin, self.last_player_shot)
         self._draw_pulse_marker(self.left_origin, self.last_ai_shot)
 
         # Message line
-        render_text(self.screen, self.font, self.message, (MARGIN, MARGIN + GRID_SIZE * CELL_SIZE + 12))
+        render_text(self.screen, self.font, self.message,
+                    (MARGIN, MARGIN + GRID_SIZE * CELL_SIZE + 12))
 
         # Footer controls
         render_text(
@@ -311,13 +323,17 @@ class Game:
             if p.get("type") == "ripple":
                 alpha = int(90 * life_ratio)
                 color = (*p["color"], alpha)
-                surf = pygame.Surface((CELL_SIZE * 2, CELL_SIZE * 2), pygame.SRCALPHA)
-                pygame.draw.circle(surf, color, (CELL_SIZE, CELL_SIZE), int(p["radius"]))
-                self.screen.blit(surf, (p["x"] - CELL_SIZE, p["y"] - CELL_SIZE))
+                surf = pygame.Surface(
+                    (CELL_SIZE * 2, CELL_SIZE * 2), pygame.SRCALPHA)
+                pygame.draw.circle(
+                    surf, color, (CELL_SIZE, CELL_SIZE), int(p["radius"]))
+                self.screen.blit(
+                    surf, (p["x"] - CELL_SIZE, p["y"] - CELL_SIZE))
             else:
                 # sparks
                 r = max(1, int(p["radius"] * (0.5 + 0.5 * life_ratio)))
-                pygame.draw.circle(self.screen, p["color"], (int(p["x"]), int(p["y"])), r)
+                pygame.draw.circle(
+                    self.screen, p["color"], (int(p["x"]), int(p["y"])), r)
 
     def _draw_pulse_marker(self, origin, cell):
         if not cell:
